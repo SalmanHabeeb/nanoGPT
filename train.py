@@ -251,7 +251,6 @@ raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
 from tqdm import tqdm
 while True:
-  with tqdm(total=max_iters) as pbar:
     # determine and set the learning rate for this iteration
     lr = get_lr(iter_num) if decay_lr else learning_rate
     for param_group in optimizer.param_groups:
@@ -327,7 +326,6 @@ while True:
     local_iter_num += 1
 
     # termination conditions
-    pbar.update(1)
     if iter_num > max_iters:
         break
 
