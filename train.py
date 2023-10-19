@@ -32,6 +32,8 @@ from model import GPTConfig, GPT
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
+REG_TOKEN = 65
+n_prefix_tokens = 0
 out_dir = 'out'
 eval_interval = 2000
 log_interval = 1
@@ -118,8 +120,18 @@ val_data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r
 def get_batch(split):
     data = train_data if split == 'train' else val_data
     ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
-    y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
+    x = torch.stack([torch.from_numpy((data[i:i+block_size-n_prefix_tokens]).astype(np.int64)) for i in ix])
+    y = torch.stack([torch.from_numpy((data[i+1-n_prefix_tokens:i+1+block_size-n_prefix_tokens]).astype(np.int64)) for i in ix])
+
+    if n_prefix_tokens > 0:
+        prefix_tokens = torch.full((n_prefix_tokens, ), REG_TOKEN)
+
+        # Repeat prefix_tokens to match the batch size of x
+        prefix_tokens = prefix_tokens.unsqueeze(0).repeat(x.shape[0], 1)
+
+        # Concatenate prefix_tokens with x along the second dimension
+        x = torch.cat((prefix_tokens, x), dim=1)
+
     if device_type == 'cuda':
         # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
         x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
